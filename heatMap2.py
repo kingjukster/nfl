@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 # ----------------------------
 # Config
 # ----------------------------
-TRAIN_PATH = "yearly_team_stats_combined_filtered.csv"   # yearly (train)
-TEST_PATH  = "nfl_team_off_def_combined.csv"             # nfl (test)
+TRAIN_PATH = "team_stats_with_fantasy_clean.csv"   # yearly (train)
+TEST_PATH  = "merged_file.csv"             # nfl (test)
 ID_COLS = ["team", "season", "season_type"]
 TARGET = "win_pct"
 
