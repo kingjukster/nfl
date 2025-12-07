@@ -14,3 +14,5 @@ Most needed CSVs are already made.
 heatmapnotebook.ipynb to make heatmap
 
 test_data.ipynb to get up to date test data
+
+Attacker.ipynb to get fantasy scores
