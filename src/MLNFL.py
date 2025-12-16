@@ -1,12 +1,43 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, GridSearchCV
+import logging
+import joblib
+from pathlib import Path
+from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error, median_absolute_error
 
-df = pd.read_csv("yearly_player_stats_defense.csv")
-df = df[df['player_name'] != 'N/A']
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Configuration
+POS = "CB"  # change to "LB", "CB", "DT"
+DEFENSE_CSV = "data/raw/yearly_player_stats_defense.csv"
+TIERS_CSV = "data/processed/cornerback_tiers_2024.csv"
+USE_GRID_SEARCH = True
+
+# Load data with error handling
+try:
+    csv_path = Path(DEFENSE_CSV)
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Data file not found: {DEFENSE_CSV}")
+    
+    df = pd.read_csv(csv_path)
+    logger.info(f"Loaded {len(df)} rows from {DEFENSE_CSV}")
+    
+    if df.empty:
+        raise ValueError(f"Dataset is empty: {DEFENSE_CSV}")
+    
+    df = df[df['player_name'] != 'N/A']
+    logger.info(f"After filtering N/A players: {len(df)} rows")
+except Exception as e:
+    logger.error(f"Error loading data: {e}")
+    raise
 
 POS = "CB"  # change to "LB", "CB", "DT"
 
@@ -162,16 +193,47 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-ridge = Ridge(alpha=1.0)
-ridge.fit(X_train_scaled, y_train)
+# Hyperparameter tuning with GridSearchCV
+if USE_GRID_SEARCH:
+    logger.info("Performing hyperparameter tuning with GridSearchCV...")
+    param_grid = {'alpha': [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0]}
+    ridge_cv = GridSearchCV(
+        Ridge(),
+        param_grid,
+        cv=5,
+        scoring='r2',
+        n_jobs=-1,
+        verbose=1
+    )
+    ridge_cv.fit(X_train_scaled, y_train)
+    ridge = ridge_cv.best_estimator_
+    logger.info(f"Best alpha: {ridge_cv.best_params_['alpha']}")
+    logger.info(f"Best CV score: {ridge_cv.best_score_:.3f}")
+else:
+    ridge = Ridge(alpha=1.0)
+    ridge.fit(X_train_scaled, y_train)
 
 y_pred = ridge.predict(X_test_scaled)
 
+# Comprehensive evaluation metrics
 mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+mae = mean_absolute_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
+medae = median_absolute_error(y_test, y_pred)
 
-print(f"Mean Squared Error: {mse:.3f}")
-print(f"R² Score: {r2:.3f}")
+# Baseline comparison
+baseline_pred = np.full_like(y_test, y_train.mean())
+baseline_mae = mean_absolute_error(y_test, baseline_pred)
+improvement = ((baseline_mae - mae) / baseline_mae) * 100 if baseline_mae > 0 else 0
+
+print(f"\n📊 {POS} Model Performance:")
+print(f"  MSE:  {mse:.3f}")
+print(f"  RMSE: {rmse:.3f}")
+print(f"  MAE:  {mae:.3f}")
+print(f"  R²:   {r2:.3f}")
+print(f"  MedAE: {medae:.3f}")
+print(f"  Improvement over baseline: {improvement:.1f}%")
 
 # Add predictions and actuals back into your test set
 X_test_copy = X_test.copy()
@@ -211,14 +273,42 @@ team_avg = (
 print(f"\n Average Predicted {POS} Fantasy Points per Team for {int(max_season)}:")
 print(team_avg.head(15).to_string())
 
-team_avg.to_csv(f"avg_{POS}_fantasy_by_team_{int(max_season)}.csv")
-print(f"\nSaved as avg_{POS}_fantasy_by_team_{int(max_season)}.csv")
+# Save team averages
+output_dir = Path("output")
+output_dir.mkdir(exist_ok=True)
+team_avg_path = output_dir / f"avg_{POS}_fantasy_by_team_{int(max_season)}.csv"
+team_avg.to_csv(team_avg_path)
+print(f"\nSaved team averages to {team_avg_path}")
+
+# Save model and scaler
+models_dir = Path("models")
+models_dir.mkdir(exist_ok=True)
+model_path = models_dir / f"ridge_{POS.lower()}_model.pkl"
+scaler_path = models_dir / f"ridge_{POS.lower()}_scaler.pkl"
+
+joblib.dump(ridge, model_path)
+joblib.dump(scaler, scaler_path)
+logger.info(f"Saved model to {model_path}")
+logger.info(f"Saved scaler to {scaler_path}")
 
 # After building X_test_copy with player_name + Predicted:
-tiers = pd.read_csv("cornerback_tiers_2024.csv")  # player_name, team, Tier, TierScore
-eval_df = X_test_copy.merge(tiers[['player_name','Tier','TierScore']], on='player_name', how='inner')
-
-from scipy.stats import spearmanr
-rho, p = spearmanr(eval_df['Predicted'], eval_df['TierScore'])
-print(f"Spearman rank corr (Predicted vs TierScore): rho={rho:.3f}, p={p:.3g}")
+# Try to load tiers file if it exists
+tiers_path = Path(TIERS_CSV)
+if tiers_path.exists():
+    try:
+        tiers = pd.read_csv(tiers_path)
+        eval_df = X_test_copy.merge(tiers[['player_name','Tier','TierScore']], on='player_name', how='inner')
+        
+        if len(eval_df) > 0:
+            from scipy.stats import spearmanr
+            rho, p = spearmanr(eval_df['Predicted'], eval_df['TierScore'])
+            print(f"\n📈 Spearman rank correlation (Predicted vs TierScore):")
+            print(f"  rho = {rho:.3f}")
+            print(f"  p-value = {p:.3g}")
+        else:
+            logger.warning("No matching players found between predictions and tiers file")
+    except Exception as e:
+        logger.warning(f"Could not load or process tiers file: {e}")
+else:
+    logger.info(f"Tiers file not found: {TIERS_CSV}, skipping correlation analysis")
 

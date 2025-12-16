@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import logging
+from pathlib import Path
 from itertools import combinations
 from sklearn.naive_bayes import GaussianNB
 from sklearn.preprocessing import StandardScaler
@@ -7,11 +9,18 @@ from sklearn.pipeline import make_pipeline
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # ----------------------------
 # Config
 # ----------------------------
-TRAIN_PATH = "team_stats_with_fantasy_clean.csv"   # yearly (train)
-TEST_PATH  = "merged_file.csv"             # nfl (test)
+TRAIN_PATH = "data/processed/team_stats_with_fantasy_clean.csv"   # yearly (train)
+TEST_PATH  = "data/processed/merged_file.csv"             # nfl (test)
 ID_COLS = ["team", "season", "season_type"]
 TARGET = "win_pct"
 
@@ -64,8 +73,27 @@ def common_numeric_features(train_df, test_df, exclude):
 # ----------------------------
 # Load
 # ----------------------------
-train_df = pd.read_csv(TRAIN_PATH)
-test_df  = pd.read_csv(TEST_PATH)
+try:
+    train_path = Path(TRAIN_PATH)
+    test_path = Path(TEST_PATH)
+    
+    if not train_path.exists():
+        raise FileNotFoundError(f"Training file not found: {TRAIN_PATH}")
+    if not test_path.exists():
+        raise FileNotFoundError(f"Test file not found: {TEST_PATH}")
+    
+    train_df = pd.read_csv(train_path)
+    test_df = pd.read_csv(test_path)
+    
+    if train_df.empty:
+        raise ValueError(f"Training file is empty: {TRAIN_PATH}")
+    if test_df.empty:
+        raise ValueError(f"Test file is empty: {TEST_PATH}")
+    
+    logger.info(f"Loaded {len(train_df)} training rows and {len(test_df)} test rows")
+except Exception as e:
+    logger.error(f"Error loading data: {e}")
+    raise
 
 # Keep regular season only (if present)
 if "season_type" in train_df.columns:
@@ -143,16 +171,33 @@ for a in range(n):
             
 
 # Plot
-fig, ax = plt.subplots(figsize=(10, 8))
-im = ax.imshow(prob, aspect='auto')
-ax.set_xticks(range(n)); ax.set_yticks(range(n))
-ax.set_xticklabels(top14, rotation=45, ha='right')
-ax.set_yticklabels(top14)
-ax.set_title(f"Naive Bayes Win Probability — Test {latest_test_season} (Row beats Column)")
-cbar = plt.colorbar(im, ax=ax); cbar.set_label("P(Row wins)")
-plt.tight_layout()
-plt.show()
+try:
+    fig, ax = plt.subplots(figsize=(10, 8))
+    im = ax.imshow(prob, aspect='auto', cmap='RdYlGn', vmin=0, vmax=1)
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(top14, rotation=45, ha='right')
+    ax.set_yticklabels(top14)
+    ax.set_title(f"Naive Bayes Win Probability — Test {latest_test_season} (Row beats Column)")
+    cbar = plt.colorbar(im, ax=ax)
+    cbar.set_label("P(Row wins)")
+    plt.tight_layout()
+    
+    # Save plot
+    output_dir = Path("output")
+    output_dir.mkdir(exist_ok=True)
+    plot_path = output_dir / f"win_probability_heatmap_{latest_test_season}.png"
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    logger.info(f"Saved heatmap to {plot_path}")
+    
+    plt.show()
+except Exception as e:
+    logger.error(f"Error creating plot: {e}")
+    raise
 
-print(f"Training rows: {len(train_df)} | Pairwise samples: {len(pairs_y)}")
-print(f"Test season: {latest_test_season} | Teams evaluated: {len(top14)}")
-print(f"Common feature count: {len(common_feats)}")
+print(f"\n📊 Model Summary:")
+print(f"  Training rows: {len(train_df)}")
+print(f"  Pairwise samples: {len(pairs_y)}")
+print(f"  Test season: {latest_test_season}")
+print(f"  Teams evaluated: {len(top14)}")
+print(f"  Common features: {len(common_feats)}")
