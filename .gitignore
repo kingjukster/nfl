@@ -50,3 +50,8 @@ desktop.ini
 *.temp
 ~*
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+

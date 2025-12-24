@@ -553,15 +553,20 @@ def main():
     
     if not comparison_df.empty:
         # Generate and print report
+        output_dir = Path("output/comparison")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        report_file = output_dir / "prediction_comparison_report.txt"
         report = comparator.generate_report(
             comparison_df,
-            output_file="output/prediction_comparison_report.txt"
+            output_file=str(report_file)
         )
         print("\n" + report)
         
         # Save comparison DataFrame
-        comparison_df.to_csv("output/prediction_comparison.csv", index=False)
-        logger.info("Comparison results saved to output/prediction_comparison.csv")
+        comparison_file = output_dir / "prediction_comparison.csv"
+        comparison_df.to_csv(comparison_file, index=False)
+        logger.info(f"Comparison results saved to {comparison_file}")
     else:
         logger.warning("No comparison results generated. Check data availability.")
 

@@ -1,5 +1,9 @@
 """
 Utility functions for NFL Prediction Project.
+
+Note: Data loading functions have been moved to src.data.loaders
+for better modularity. This module maintains backward compatibility
+and additional utility functions.
 """
 import pandas as pd
 import numpy as np
@@ -8,7 +12,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import from new modular data utilities
+from src.data import load_csv_safe as _load_csv_safe, chronological_split as _chronological_split
 
+# Maintain backward compatibility
 def load_csv_safe(file_path: str, required: bool = True) -> pd.DataFrame:
     """
     Safely load a CSV file with error handling.
@@ -25,66 +32,13 @@ def load_csv_safe(file_path: str, required: bool = True) -> pd.DataFrame:
     pd.DataFrame
         Loaded DataFrame
     """
-    path = Path(file_path)
-    
-    if not path.exists():
-        if required:
-            raise FileNotFoundError(f"Required file not found: {file_path}")
-        else:
-            logger.warning(f"Optional file not found: {file_path}")
-            return pd.DataFrame()
-    
-    try:
-        df = pd.read_csv(path)
-        if df.empty:
-            raise ValueError(f"File is empty: {file_path}")
-        logger.info(f"Loaded {len(df)} rows from {file_path}")
-        return df
-    except pd.errors.EmptyDataError:
-        raise ValueError(f"Empty CSV file: {file_path}")
-    except Exception as e:
-        logger.error(f"Error loading {file_path}: {e}")
-        raise
+    """Backward compatibility wrapper for load_csv_safe."""
+    return _load_csv_safe(file_path, required=required)
 
 
 def chronological_split(X: pd.DataFrame, y: pd.Series, test_season: int = None) -> tuple:
-    """
-    Split data chronologically by season.
-    
-    Parameters:
-    -----------
-    X : pd.DataFrame
-        Features DataFrame (must have 'season' column)
-    y : pd.Series
-        Target Series
-    test_season : int, optional
-        Season to use for testing. If None, uses the latest season.
-        
-    Returns:
-    --------
-    tuple : (X_train, X_test, y_train, y_test)
-        Split data
-    """
-    if 'season' not in X.columns:
-        raise ValueError("X must have a 'season' column for chronological split")
-    
-    if test_season is None:
-        test_season = int(X['season'].max())
-    
-    train_mask = X['season'] < test_season
-    test_mask = X['season'] == test_season
-    
-    if test_mask.sum() == 0:
-        raise ValueError(f"No data found for test season {test_season}")
-    
-    X_train = X.loc[train_mask].drop(columns=['season'], errors='ignore')
-    X_test = X.loc[test_mask].drop(columns=['season'], errors='ignore')
-    y_train = y.loc[train_mask]
-    y_test = y.loc[test_mask]
-    
-    logger.info(f"Chronological split - Train: {len(X_train)} rows, Test: {len(X_test)} rows (season {test_season})")
-    
-    return X_train, X_test, y_train, y_test
+    """Backward compatibility wrapper for chronological_split."""
+    return _chronological_split(X, y, test_season=test_season)
 
 
 def calculate_comprehensive_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_train: np.ndarray = None) -> dict:

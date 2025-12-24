@@ -35,11 +35,22 @@ class DataConfig:
     # Kaggle dataset
     kaggle_dataset: str = "philiphyde1/nfl-stats-1999-2022"
     
+    # Historical data settings
+    super_bowl_era_start: int = 1966
+    pbp_era_start: int = 1999  # Play-by-play data availability
+    
     # File paths
     data_dir: Path = Path("data")
     output_dir: Path = Path("output")
     models_dir: Path = Path("models")
     logs_dir: Path = Path("logs")
+    historical_data_dir: Path = Path("data/historical")
+    logo_dir: Path = Path("data/logos")
+    
+    # Pro-Football-Reference settings
+    pfr_base_url: str = "https://www.pro-football-reference.com"
+    use_pfr_cache: bool = True
+    pfr_request_delay: float = 1.0  # seconds between requests
     
     # Data files (relative to project root)
     defense_csv: str = "data/raw/yearly_player_stats_defense.csv"
@@ -59,6 +70,23 @@ class DataConfig:
         self.output_dir.mkdir(exist_ok=True)
         self.models_dir.mkdir(exist_ok=True)
         self.logs_dir.mkdir(exist_ok=True)
+        self.historical_data_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create historical data subdirectories
+        (self.historical_data_dir / "pfr" / "team_stats").mkdir(parents=True, exist_ok=True)
+        (self.historical_data_dir / "pfr" / "player_stats").mkdir(parents=True, exist_ok=True)
+        (self.historical_data_dir / "pfr" / "game_results").mkdir(parents=True, exist_ok=True)
+        (self.historical_data_dir / "nflfastr" / "pbp").mkdir(parents=True, exist_ok=True)
+        (self.historical_data_dir / "nflfastr" / "rosters").mkdir(parents=True, exist_ok=True)
+        (self.historical_data_dir / "aggregated").mkdir(parents=True, exist_ok=True)
+        
+        # Create organized output subdirectories
+        (self.output_dir / "playoffs").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "validation").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "analysis").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "comparison").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "models").mkdir(parents=True, exist_ok=True)
+        (self.output_dir / "visualizations").mkdir(parents=True, exist_ok=True)
 
 
 @dataclass

@@ -79,14 +79,19 @@ def main():
     
     # Step 4: Generate report
     print("Step 4: Generating comparison report...")
+    output_dir = Path("output/comparison")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    report_file = output_dir / "prediction_comparison_report.txt"
     report = comparator.generate_report(
         comparison_df,
-        output_file="output/prediction_comparison_report.txt"
+        output_file=str(report_file)
     )
     
     # Save comparison CSV
-    comparison_df.to_csv("output/prediction_comparison.csv", index=False)
-    print("[OK] Comparison results saved to output/prediction_comparison.csv")
+    comparison_file = output_dir / "prediction_comparison.csv"
+    comparison_df.to_csv(comparison_file, index=False)
+    print(f"[OK] Comparison results saved to {comparison_file}")
     print()
     
     # Print summary
@@ -96,8 +101,8 @@ def main():
     print(report)
     print()
     print("Detailed results saved to:")
-    print("   - output/prediction_comparison.csv")
-    print("   - output/prediction_comparison_report.txt")
+    print(f"   - {comparison_file}")
+    print(f"   - {report_file}")
     print()
 
 

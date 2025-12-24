@@ -6,11 +6,20 @@ seaborn>=0.12.0
 kagglehub>=0.1.0
 scipy>=1.10.0
 joblib>=1.3.0
-nfl-data-py>=1.0.0
+nfl-data-py>=1.0.0  # Has import_injuries() for injury reports (2009-present)
+# Optional: nflreadpy>=0.1.0  # Alternative nflverse package (not required, nfl-data-py works)
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 fuzzywuzzy>=0.18.0
 python-Levenshtein>=0.21.0
 xgboost>=2.0.0
 lightgbm>=4.0.0
+# Note: nflfastR is primarily an R package. For Python:
+# Option 1: Use nfl-data-py (already installed) - may have limited pbp data
+# Option 2: Use R package nflfastR via rpy2 or manual R scripts
+# Option 3: Manual download from nflfastr.com
+lxml>=4.9.0
+html5lib>=1.1
+tqdm>=4.65.0
+Pillow>=10.0.0
 
